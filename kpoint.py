@@ -4,7 +4,7 @@
 @Author: Jianzhou Zhao
 @Date: 2018-11-21 15:58:18
 @LastEditors: Jianzhou Zhao
-@LastEditTime: 2019-05-13 17:47:33
+@LastEditTime: 2019-07-12 16:55:43
 @Description: File content
 '''
 # @Author: Jianzhou Zhao <jzzhao>
@@ -79,6 +79,7 @@ if __name__ == '__main__':
 
     K_list = [[0, 0, 0], [1 / 3, 1 / 3, 1 / 3], [0.5, 0.5, 0.5]]
     kpts = Kpoint().from_high_symmetry_points(khsym_frac=K_list)
-
+    kpth = kpts.k_length_accumulate(kpts.kreal)
     print(kpts.kfrac)
     print(kpts.kreal)
+    print(kpth)

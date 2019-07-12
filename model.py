@@ -1,11 +1,17 @@
-# @Author: Jianzhou Zhao <jzzhao>
-# @Date:   2018-11-21T12:05:50+01:00
-# @Email:  jianzhou.zhao@gmail.com
-# @Last modified by:   jzzhao
-# @Last modified time: 2018-11-21T16:37:10+01:00
+#!/usr/bin/env python
+# coding=UTF-8
+'''
+@Author: Jianzhou Zhao
+@Date: 2018-11-21 19:05:50
+@LastEditors: Jianzhou Zhao
+@LastEditTime: 2019-07-12 16:58:47
+@Description: File content
+'''
 
+import mpiutils as mpi
 import numpy as np
 import scipy.linalg as la
+import os
 from collections import defaultdict
 
 
@@ -21,30 +27,41 @@ class Model():
     @classmethod
     def from_hr(cls, hr_file):
 
-        with open(hr_file, 'r') as f:
-            next(f)  # skip title line
-            nwan = int(next(f))
-            nrpt = int(next(f))
+        if mpi.rank == 0:
+            with open(hr_file, 'r') as f:
+                next(f)  # skip title line
+                nwan = int(next(f))
+                nrpt = int(next(f))
 
-            # read degeneration of R points
-            deg = []
-            for _, line in zip(range(int(np.ceil(nrpt / 15))), f):
-                deg.extend(int(i) for i in line.split())
+                # read degeneration of R points
+                deg = []
+                for _, line in zip(range(int(np.ceil(nrpt / 15))), f):
+                    deg.extend(int(i) for i in line.split())
 
-            assert len(deg) == nrpt
+                assert len(deg) == nrpt
 
-            # read rpt and hamr
-            raw_list = [line.split() for line in f]
+                # read rpt and hamr
+                raw_list = [line.split() for line in f]
 
-            nwan_square = nwan**2
-            hr_list = defaultdict(list)
-            for num, line in enumerate(raw_list):
-                Rvec = tuple(map(int, line[:3]))
-                hr_list[Rvec].append(
-                    (float(line[5]) + 1j * float(line[6])) / deg[num // nwan_square])
+                nwan_square = nwan**2
+                hr_list = defaultdict(list)
+                for num, line in enumerate(raw_list):
+                    Rvec = tuple(map(int, line[:3]))
+                    hr_list[Rvec].append(
+                        (float(line[5]) + 1j * float(line[6])) / deg[num // nwan_square])
 
-        for key, array in hr_list.items():
-            hr_list[key] = [array[iwan::nwan] for iwan in range(nwan)]
+            for key, array in hr_list.items():
+                hr_list[key] = [array[iwan::nwan] for iwan in range(nwan)]
+        else:
+            nwan = 0
+            nrpt = 0
+            deg = None
+            hr_list = None
+
+        nwan = mpi.bcast(nwan, root=0)
+        nrpt = mpi.bcast(nrpt, root=0)
+        deg = mpi.bcast(deg, root=0)
+        hr_list = mpi.bcast(hr_list, root=0)
 
         return cls(nwan=nwan, nrpt=nrpt, deg=deg, ham=hr_list)
 
@@ -54,6 +71,13 @@ class Model():
 
     def get_eigval(self, Kvec):
         return la.eigvalsh(self.get_bulk_Hk(Kvec))
+
+    def get_eigvals(self, klist):
+        kmpi = mpi.devide_array(klist, root=0)
+        empi = np.array([self.get_eigval(kvec) for kvec in kmpi])
+        eigs = np.zeros((len(klist), self.nwan), dtype=np.float)
+        mpi.Gatherv(empi, (eigs, len(empi.flatten())), root=0)
+        return eigs.T
 
 
 if __name__ == '__main__':

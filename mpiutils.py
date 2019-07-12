@@ -5,7 +5,7 @@
 @LastEditors: Jianzhou Zhao
 @Description: This is a wrapped code for the mpi4py
 @Date: 2019-04-19 22:00:22
-@LastEditTime: 2019-07-12 14:24:57
+@LastEditTime: 2019-07-12 15:02:16
 '''
 
 import sys
